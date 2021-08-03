@@ -150,7 +150,7 @@ result of `winum-get-number-string'."
   :group 'winum
   :type  'string)
 
-(defcustom winum-ignored-buffers '(" *which-key*")
+(defcustom winum-ignored-buffers '("*which-key*")
   "List of buffers to ignore when assigning numbers."
   :group 'winum
   :type  '(repeat string))
@@ -166,26 +166,16 @@ See Info node `(emacs) Regexps' or Info node `(elisp) Regular Expressions'"
   "Face used for the number in the mode-line."
   :group 'winum)
 
-(defvar winum-base-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "`") 'winum-select-window-by-number)
-    (define-key map (kbd "²") 'winum-select-window-by-number)
-    (define-key map (kbd "0") 'winum-select-window-0-or-10)
-    (define-key map (kbd "1") 'winum-select-window-1)
-    (define-key map (kbd "2") 'winum-select-window-2)
-    (define-key map (kbd "3") 'winum-select-window-3)
-    (define-key map (kbd "4") 'winum-select-window-4)
-    (define-key map (kbd "5") 'winum-select-window-5)
-    (define-key map (kbd "6") 'winum-select-window-6)
-    (define-key map (kbd "7") 'winum-select-window-7)
-    (define-key map (kbd "8") 'winum-select-window-8)
-    (define-key map (kbd "9") 'winum-select-window-9)
-    map)
-  "Keymap to be used under the prefix provided by `winum-keymap-prefix'.")
+;; keymap
 
-(defvar winum-keymap (let ((map (make-sparse-keymap)))
-                       (define-key map (kbd "C-x w") winum-base-map)
-                       map)
+(defvar winum-keymap-quick-access-modifier "C"
+  "The modifier that prefixes the winum-keymap quick access.
+This needs to be set before loading winum-mode.")
+
+(defvar winum-keymap
+  (let ((map (make-sparse-keymap)))
+    ;; (define-key map (kbd "C-x w") winum-base-map)
+    map)
   "Keymap used for `winum-mode'.")
 
 ;; Internal variables ----------------------------------------------------------
@@ -237,7 +227,7 @@ Needed to detect scope changes at runtime.")
   "A minor mode that allows for managing windows based on window numbers."
   nil
   nil
-  winum-keymap
+  :keymap winum-keymap
   :global t
   (if winum-mode
       (winum--init)
@@ -251,82 +241,12 @@ If prefix ARG is given, delete the window instead of selecting it."
   (let ((n (if (winum-get-window-by-number 0)
                (if arg '- 0)
              (if arg -10 10))))
-    (winum-select-window-by-number n)))
+    (winum-select-nth-window n)))
 
 ;;;###autoload
-(defun winum-select-window-0 (&optional arg)
-  "Jump to window 0.
-If prefix ARG is given, delete the window instead of selecting it."
-  (interactive "P")
-  (winum-select-window-by-number (if arg '- 0)))
-
-;;;###autoload
-(defun winum-select-window-1 (&optional arg)
-  "Jump to window 1.
-If prefix ARG is given, delete the window instead of selecting it."
-  (interactive "P")
-  (winum-select-window-by-number (if arg -1 1)))
-
-;;;###autoload
-(defun winum-select-window-2 (&optional arg)
-  "Jump to window 2.
-If prefix ARG is given, delete the window instead of selecting it."
-  (interactive "P")
-  (winum-select-window-by-number (if arg -2 2)))
-
-;;;###autoload
-(defun winum-select-window-3 (&optional arg)
-  "Jump to window 3.
-If prefix ARG is given, delete the window instead of selecting it."
-  (interactive "P")
-  (winum-select-window-by-number (if arg -3 3)))
-
-;;;###autoload
-(defun winum-select-window-4 (&optional arg)
-  "Jump to window 4.
-If prefix ARG is given, delete the window instead of selecting it."
-  (interactive "P")
-  (winum-select-window-by-number (if arg -4 4)))
-
-;;;###autoload
-(defun winum-select-window-5 (&optional arg)
-  "Jump to window 5.
-If prefix ARG is given, delete the window instead of selecting it."
-  (interactive "P")
-  (winum-select-window-by-number (if arg -5 5)))
-
-;;;###autoload
-(defun winum-select-window-6 (&optional arg)
-  "Jump to window 6.
-If prefix ARG is given, delete the window instead of selecting it."
-  (interactive "P")
-  (winum-select-window-by-number (if arg -6 6)))
-
-;;;###autoload
-(defun winum-select-window-7 (&optional arg)
-  "Jump to window 7.
-If prefix ARG is given, delete the window instead of selecting it."
-  (interactive "P")
-  (winum-select-window-by-number (if arg -7 7)))
-
-;;;###autoload
-(defun winum-select-window-8 (&optional arg)
-  "Jump to window 8.
-If prefix ARG is given, delete the window instead of selecting it."
-  (interactive "P")
-  (winum-select-window-by-number (if arg -8 8)))
-
-;;;###autoload
-(defun winum-select-window-9 (&optional arg)
-  "Jump to window 9.
-If prefix ARG is given, delete the window instead of selecting it."
-  (interactive "P")
-  (winum-select-window-by-number (if arg -9 9)))
-
-;;;###autoload
-(defun winum-select-window-by-number (&optional arg)
-  "Select or delete window which number is specified by ARG.
-If the number is negative, delete the window instead of selecting it.
+(defun winum-select-nth-window (num &optional arg)
+  "Select or delete window which number is specified by NUM.
+Prefix argument ARG if it is negative, delete the window instead of selecting it.
 There are several ways to provide the number:
 - if called from elisp with an argument, use it.
 - if called interactively with a numeric prefix argument, use it.
@@ -334,26 +254,20 @@ There are several ways to provide the number:
 - if prefix argument is the default prefix argument, delete current window.
 - if called interactively and no valid argument is provided, read from
   minibuffer."
-  (interactive "P")
-  (let* ((n (cond
-             ((integerp arg) arg)
-             ((eq arg '-) 0) ; the negative argument
-             (arg (winum-get-number))
-             ((called-interactively-p 'any)
-              (let ((user-input-str (read-from-minibuffer "Window: ")))
-                (if (not (string-match-p "[+-]?[0-9]+\.*" user-input-str))
-                    (winum-get-number)
-                  (string-to-number user-input-str))))
-             (t (winum-get-number))))
-         (w (winum-get-window-by-number (abs n)))
-         (delete (and arg
-                      (or (not (integerp arg))
-                          (> 0 n)))))
-    (if w
-        (if delete
-            (delete-window w)
-          (winum--switch-to-window w))
-      (error "No window numbered %d" n))))
+  (interactive (list (let* ((type (event-basic-type last-command-event))
+                            (char (if (characterp type)
+                                      ;; Number on the main row.
+                                      type
+                                    ;; Keypad number, if bound directly.
+                                    (car (last (string-to-list (symbol-name type))))))
+                            (number (- char ?0)))
+                       number)
+                     current-prefix-arg))
+  (if-let ((w (winum-get-window-by-number (abs num))))
+      (let ((delete (eq arg 0)))
+        (if delete (delete-window w)
+          (winum--switch-to-window w)))
+    (error "No window numbered %d" num)))
 
 ;; Public API ------------------------------------------------------------------
 
@@ -374,7 +288,8 @@ PREFIX must be a key sequence, like the ones returned by `kbd'."
 (defun winum-get-window-by-number (n)
   "Return window numbered N if exists, nil otherwise."
   (let ((window-vector (winum--get-window-vector)))
-    (when (and (>= n 0) (< n (length window-vector)))
+    (when (and (>= n 0)
+               (< n (length window-vector)))
       (aref window-vector n))))
 
 ;;;###autoload
@@ -402,6 +317,7 @@ WINDOW: if specified, the window of which we want to know the number.
 
 (defun winum--init ()
   "Initialize winum-mode."
+  (winum-keymap--bind-quick-access winum-keymap winum-keymap-quick-access-modifier)
   (setq winum--window-count (length (winum--window-list)))
   (if (eq winum-scope 'frame-local)
       (setq winum--frames-table (make-hash-table :size winum--max-frames))
@@ -421,6 +337,24 @@ WINDOW: if specified, the window of which we want to know the number.
   (remove-hook 'minibuffer-setup-hook 'winum--update)
   (remove-hook 'window-configuration-change-hook 'winum--update)
   (setq winum--frames-table nil))
+
+;; winum keymap quick access
+
+(defun winum-keymap--kbd-quick-access (modifier key)
+  (kbd (format "%s-%s" modifier key)))
+
+(defun winum-keymap--bind-quick-access (keymap modifier)
+  ;; (let ((modifier (winum-keymap--quick-access-modifier))))
+  (dotimes (i 10)
+    (let* ((key (int-to-string i))
+           (key-seq (winum-keymap--kbd-quick-access modifier key)))
+      (if (lookup-key keymap key-seq)
+          (warn "Key sequence %s already bound" (key-description key-seq))
+        (define-key keymap key-seq #'winum-select-nth-window))))
+  (define-key keymap (winum-keymap--kbd-quick-access modifier "0")
+    'winum-select-window-0-or-10))
+
+;; modeline
 
 (defun winum--install-mode-line (&optional position)
   "Install the window number from `winum-mode' to the mode-line.
