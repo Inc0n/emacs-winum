@@ -47,7 +47,7 @@
 
 ;; Configuration variables -----------------------------------------------------
 
-(defgroup winum nil
+(defgroup winum ()
   "Navigate and manage windows using numbers."
   :group 'convenience)
 
@@ -168,14 +168,16 @@ See Info node `(emacs) Regexps' or Info node `(elisp) Regular Expressions'"
 
 ;; keymap
 
-(defvar winum-keymap-quick-access-modifier "C"
+(defcustom winum-keymap-quick-access-modifier "C"
   "The modifier that prefixes the winum-keymap quick access.
-This needs to be set before loading winum-mode.")
+This needs to be set before loading winum-mode."
+  :group 'winum
+  :type '(choice
+          (const :tag "meta" "M")
+          (const :tag "control" "C")
+          (const :tag "shift" "s")))
 
-(defvar winum-keymap
-  (let ((map (make-sparse-keymap)))
-    ;; (define-key map (kbd "C-x w") winum-base-map)
-    map)
+(defvar winum-keymap (make-sparse-keymap)
   "Keymap used for `winum-mode'.")
 
 ;; Internal variables ----------------------------------------------------------
@@ -225,8 +227,6 @@ Needed to detect scope changes at runtime.")
 ;;;###autoload
 (define-minor-mode winum-mode
   "A minor mode that allows for managing windows based on window numbers."
-  nil
-  nil
   :keymap winum-keymap
   :global t
   (if winum-mode
@@ -243,31 +243,34 @@ If prefix ARG is given, delete the window instead of selecting it."
              (if arg -10 10))))
     (winum-select-nth-window n)))
 
+(defun winum--last-key-to-num ()
+  "Convert the last keystroke to a number."
+  (let* ((type (event-basic-type last-command-event))
+         (char (if (characterp type)
+                   ;; Number on the main row.
+                   type
+                 ;; Keypad number, if bound directly.
+                 (car (last (string-to-list (symbol-name type)))))))
+    ;; convert to number
+    (- char ?0)))
+
 ;;;###autoload
 (defun winum-select-nth-window (num &optional arg)
   "Select or delete window which number is specified by NUM.
-Prefix argument ARG if it is negative, delete the window instead of selecting it.
+C-u Prefix argument ARG deletes the window instead of selecting it.
 There are several ways to provide the number:
-- if called from elisp with an argument, use it.
 - if called interactively with a numeric prefix argument, use it.
-- if prefix argument is the negative argument, delete window 0.
-- if prefix argument is the default prefix argument, delete current window.
-- if called interactively and no valid argument is provided, read from
-  minibuffer."
-  (interactive (list (let* ((type (event-basic-type last-command-event))
-                            (char (if (characterp type)
-                                      ;; Number on the main row.
-                                      type
-                                    ;; Keypad number, if bound directly.
-                                    (car (last (string-to-list (symbol-name type))))))
-                            (number (- char ?0)))
-                       number)
+- if prefix argument is the default prefix argument, delete current window."
+  (interactive (list (winum--last-key-to-num)
                      current-prefix-arg))
-  (if-let ((w (winum-get-window-by-number (abs num))))
-      (let ((delete (eq arg 0)))
-        (if delete (delete-window w)
-          (winum--switch-to-window w)))
-    (error "No window numbered %d" num)))
+  (let ((w (winum-get-window-by-number (abs num))))
+    (cond ((null w) (message "No window numbered %d" num))
+          ((window-live-p w)
+           (if-let ((delete (consp arg)))
+               (delete-window w)
+             (winum--switch-to-window w)))
+          (:else
+           (message "Got a dead window %S" window)))))
 
 ;; Public API ------------------------------------------------------------------
 
@@ -533,10 +536,8 @@ Verifies 2 things (when `winum-scope' is frame local):
   "Return a list of numbers from 1 to `winum--window-count'.
 0 is is not part of the list as its assignment is either manual
 using the `winum-assign-func', or using `winum-auto-assign-0-to-minibuffer'."
-  (let ((numbers))
-    (dotimes (i winum--window-count)
-      (push (1+ i) numbers))
-    (nreverse numbers)))
+  (cl-loop for i from 1 to winum--window-count
+           collect i))
 
 (defun winum--switch-to-window (window)
   "Switch to the window WINDOW and switch input focus if on a different frame."
@@ -563,8 +564,6 @@ internal data structures according to the new scope."
 
 (add-hook 'delete-frame-functions #'winum--remove-deleted-frame-from-frames-table)
 
-(push "^No window numbered .$"     debug-ignored-errors)
-(push "^Got a dead window .$"      debug-ignored-errors)
 (push "^Invalid `winum-scope': .$" debug-ignored-errors)
 
 (provide 'winum)
