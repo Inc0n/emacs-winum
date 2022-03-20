@@ -170,7 +170,8 @@ See Info node `(emacs) Regexps' or Info node `(elisp) Regular Expressions'"
 
 (defcustom winum-keymap-quick-access-modifier "C"
   "The modifier that prefixes the winum-keymap quick access.
-This needs to be set before loading winum-mode."
+This needs to be set before loading winum-mode.
+Call `winum--init' to refresh the binding."
   :group 'winum
   :type '(choice
           (const :tag "meta" "M")
@@ -319,8 +320,9 @@ WINDOW: if specified, the window of which we want to know the number.
 ;; Internal functions ----------------------------------------------------------
 
 (defun winum--init ()
-  "Initialize winum-mode."
-  (winum-keymap--bind-quick-access winum-keymap winum-keymap-quick-access-modifier)
+  "Initialize `winum-mode'."
+  (winum-keymap--bind-quick-access
+   winum-keymap winum-keymap-quick-access-modifier)
   (setq winum--window-count (length (winum--window-list)))
   (if (eq winum-scope 'frame-local)
       (setq winum--frames-table (make-hash-table :size winum--max-frames))
@@ -347,7 +349,7 @@ WINDOW: if specified, the window of which we want to know the number.
   (kbd (format "%s-%s" modifier key)))
 
 (defun winum-keymap--bind-quick-access (keymap modifier)
-  ;; (let ((modifier (winum-keymap--quick-access-modifier))))
+  (setf (cdr winum-keymap) nil)
   (dotimes (i 10)
     (let* ((key (int-to-string i))
            (key-seq (winum-keymap--kbd-quick-access modifier key)))
