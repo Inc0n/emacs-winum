@@ -265,7 +265,11 @@ There are several ways to provide the number:
   (interactive (list (winum--last-key-to-num)
                      current-prefix-arg))
   (let ((w (winum-get-window-by-number (abs num))))
+	;; (message "winum %s, %s" (window-buffer w) (frame-visible-p (window-frame w)))
     (cond ((null w) (message "No window numbered %d" num))
+		  ((not (frame-visible-p (window-frame w)))
+		   ;; Don't select Corfu frames!
+		   (message "Selecting invisible window %s (%s)" w (window-buffer w)))
           ((window-live-p w)
            (if-let ((delete (consp arg)))
                (delete-window w)
